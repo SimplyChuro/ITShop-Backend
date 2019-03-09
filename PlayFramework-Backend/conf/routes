@@ -1,0 +1,19 @@
+# Login/Logout API routes
+POST	/api/v1/login					controllers.LoginController.login
+POST	/api/v1/logout					controllers.LoginController.logout
+
+# Product API routes
+GET		/api/v1/products				controllers.ProductController.getAll(category: Integer, name: String)
+GET		/api/v1/products/:id			controllers.ProductController.get(id : Long)
+POST	/api/v1/products				controllers.ProductController.create
+PUT		/api/v1/products/:id			controllers.ProductController.update(id : Long)
+DELETE	/api/v1/products/:id			controllers.ProductController.delete(id : Long)
+GET 	/api/v1/validate/product/image	controllers.ProductController.validate(name: String, type: String, size: Integer)
+
+
+# Category API routes
+GET		/api/v1/category				controllers.CategoryController.getAll
+GET		/api/v1/category/:id			controllers.CategoryController.get(id : Long)
+POST	/api/v1/category				controllers.CategoryController.create
+PUT		/api/v1/category/:id			controllers.CategoryController.update(id : Long)
+DELETE	/api/v1/category/:id			controllers.CategoryController.delete(id : Long)
