@@ -16,8 +16,8 @@ import models.Product;
 import models.Category;
 import models.Picture;
 import models.ProductCategory;
-import models.User;
 import play.mvc.Controller;
+import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Security;
 import play.libs.Json;
@@ -26,12 +26,10 @@ import play.libs.concurrent.HttpExecutionContext;
 public class ProductController extends Controller {
 	
 	private HttpExecutionContext httpExecutionContext;
-	private User userChecker;
 	private List<Product> products;
 	private Product product;
 	private JsonNode jsonNode;
 	private PictureFilter filter = new PictureFilter();
-	
 	
 	@Inject
     public ProductController(HttpExecutionContext ec) {
@@ -109,35 +107,30 @@ public class ProductController extends Controller {
 	
 	//Create product
 	@Security.Authenticated(Secured.class)
-	public CompletionStage<Result> create() {
+	public CompletionStage<Result> create(Http.Request request) {
 		return calculateResponse().thenApplyAsync(answer -> {
-			try {
-				userChecker = LoginController.getUser();
+			try {		
+				jsonNode = request.body().asJson().get("product");
 				
-				if(userChecker.admin) {
-					jsonNode = request().body().asJson().get("product");
-					Long cat_id = jsonNode.get("category_id").asLong();
-					
-					product = new Product();
-					product.saveProduct(jsonNode);
-					
-					Category childCategory = Category.find.byId(cat_id);
-					Category parentCategory = Category.find.byId(childCategory.parent_id);
-					
-					ProductCategory categoryConnectionChild = new ProductCategory();
-					categoryConnectionChild.product = product;
-					categoryConnectionChild.category = childCategory;
-					categoryConnectionChild.save();
-					
-					ProductCategory categoryConnectionParent = new ProductCategory();
-					categoryConnectionParent.product = product;
-					categoryConnectionParent.category = parentCategory;
-					categoryConnectionParent.save();
-					
-					return ok(Json.toJson(product));
-				} else {
-					return forbidden();
-				}
+				Long cat_id = jsonNode.get("category_id").asLong();
+				
+				product = new Product();
+				product.saveProduct(jsonNode);
+				
+				Category childCategory = Category.find.byId(cat_id);
+				Category parentCategory = Category.find.byId(childCategory.parent_id);
+				
+				ProductCategory categoryConnectionChild = new ProductCategory();
+				categoryConnectionChild.product = product;
+				categoryConnectionChild.category = childCategory;
+				categoryConnectionChild.save();
+				
+				ProductCategory categoryConnectionParent = new ProductCategory();
+				categoryConnectionParent.product = product;
+				categoryConnectionParent.category = parentCategory;
+				categoryConnectionParent.save();
+				
+				return ok(Json.toJson(product));
 			} catch(Exception e) {
 				return badRequest();
 			}
@@ -146,41 +139,35 @@ public class ProductController extends Controller {
 	
 	//Update product
 	@Security.Authenticated(Secured.class)
-	public CompletionStage<Result> update(Long id) {
+	public CompletionStage<Result> update(Http.Request request, Long id) {
 		return calculateResponse().thenApplyAsync(answer -> {
 			try {
-				userChecker = LoginController.getUser();
-				if(userChecker.admin) {
-					jsonNode = request().body().asJson().get("product");
+				jsonNode = request.body().asJson().get("product");	
+				
+				product = Product.find.byId(id);
+				product.updateProduct(jsonNode);
 					
-					product = Product.find.byId(id);
-					product.updateProduct(jsonNode);
-						
-					try {
-						Long cat_id = jsonNode.get("category_id").asLong();
-						Category childCategory = Category.find.byId(cat_id);
-						Category parentCategory = Category.find.byId(childCategory.parent_id);
-						
-						for(ProductCategory category : product.productcategory) {
-							if(category.category.parent_id == null && category.category.id != childCategory.id) {
-								category.category = childCategory;
+				try {
+					Long cat_id = jsonNode.get("category_id").asLong();
+					Category childCategory = Category.find.byId(cat_id);
+					Category parentCategory = Category.find.byId(childCategory.parent_id);
+					
+					for(ProductCategory category : product.productcategory) {
+						if(category.category.parent_id == null && category.category.id != childCategory.id) {
+							category.category = childCategory;
+							category.update();
+						} else {
+							if(category.category.id != parentCategory.id) {
+								category.category = parentCategory;					
 								category.update();
-							} else {
-								if(category.category.id != parentCategory.id) {
-									category.category = parentCategory;					
-									category.update();
-								}
 							}
 						}
-						
-					} catch(Exception e) {
-						
-					} finally {
-						return ok(Json.toJson(product));	
 					}
-				} else {
-					return forbidden();
-				}
+					
+					return ok(Json.toJson(product));
+				} catch(Exception e) {
+					return badRequest();
+				}		
 			} catch(Exception e) {
 				return badRequest();
 			}
@@ -191,25 +178,19 @@ public class ProductController extends Controller {
 	@Security.Authenticated(Secured.class)
 	public CompletionStage<Result> delete(Long id) {
 		return calculateResponse().thenApplyAsync(answer -> {
-			try {
-				userChecker = LoginController.getUser();
-				if(userChecker.admin) {
-					
-					product = Product.find.byId(id);
-					for(Picture picture : product.pictures) {
-						picture.delete();
-					}
-					
-					for(ProductCategory cat : product.productcategory) {
-						cat.delete();
-					}
-				
-					product.delete();
-							
-					return ok(Json.toJson(""));
-				} else {
-					return forbidden();
+			try {	
+				product = Product.find.byId(id);
+				for(Picture picture : product.pictures) {
+					picture.delete();
 				}
+				
+				for(ProductCategory cat : product.productcategory) {
+					cat.delete();
+				}
+			
+				product.delete();
+						
+				return ok(Json.toJson(""));
 			} catch(Exception e) {
 				return badRequest();
 			}
@@ -221,8 +202,6 @@ public class ProductController extends Controller {
 	public CompletionStage<Result> validate(String name, String type, Integer size) {
 		return calculateResponse().thenApplyAsync(answer -> {
 			try {
-				userChecker = LoginController.getUser();
-				
 				if(filter.isValidPicture(name, type, size)) {
 					S3Signature s3 = new S3Signature(name, type, size, "images/products/");
 					

@@ -11,17 +11,16 @@ import additions.MockData;
 import additions.Secured;
 import models.Category;
 import models.ProductCategory;
-import models.User;
 import play.libs.Json;
 import play.libs.concurrent.HttpExecutionContext;
 import play.mvc.Controller;
+import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Security;
 
 public class CategoryController extends Controller {
 	
 	private HttpExecutionContext httpExecutionContext;
-	private User userChecker;
 	private JsonNode jsonNode;
 	private Category category;
 	private List<Category> categories;
@@ -65,25 +64,20 @@ public class CategoryController extends Controller {
 	
 	//Create category  
 	@Security.Authenticated(Secured.class)
-	public CompletionStage<Result> create() {
+	public CompletionStage<Result> create(Http.Request request) {
 		return calculateResponse().thenApplyAsync(answer -> {
 			try {
-				userChecker = LoginController.getUser();
-				jsonNode = request().body().asJson().get("category");
-				if(userChecker.admin) {
-					category = new Category();
-					if(jsonNode.findValue("parent_id") == null || jsonNode.findValue("parent_id").asText().equals("null")) {
-						category.parent_id = null;
-					} else {
-						category.parent_id = jsonNode.findValue("parent_id").asLong();
-					}
-					category.name = jsonNode.findValue("name").asText();
-					
-					category.save();
-					return ok(Json.toJson(category));
+				jsonNode = request.body().asJson().get("category");	
+				category = new Category();
+				if(jsonNode.findValue("parent_id") == null || jsonNode.findValue("parent_id").asText().equals("null")) {
+					category.parent_id = null;
 				} else {
-					return forbidden();
+					category.parent_id = jsonNode.findValue("parent_id").asLong();
 				}
+				category.name = jsonNode.findValue("name").asText();
+				
+				category.save();
+				return ok(Json.toJson(category));
 			} catch(Exception e) {
 				return badRequest();
 			}
@@ -92,25 +86,21 @@ public class CategoryController extends Controller {
 	
 	//Update category  
 	@Security.Authenticated(Secured.class)
-	public CompletionStage<Result> update(Long id) {
+	public CompletionStage<Result> update(Http.Request request, Long id) {
 		return calculateResponse().thenApplyAsync(answer -> {	
 			try {
-				userChecker = LoginController.getUser();
-				jsonNode = request().body().asJson().get("category");
-				if(userChecker.admin) {
-					category = Category.find.byId(id);
-					if(jsonNode.findValue("parent_id") == null || jsonNode.findValue("parent_id").asText().equals("null")) {
-						category.parent_id = null;
-					} else {
-						category.parent_id = jsonNode.findValue("parent_id").asLong();
-					}
-					category.name = jsonNode.findValue("name").asText();
-					
-					category.update();
-					return ok(Json.toJson(category));
+				jsonNode = request.body().asJson().get("category");
+				
+				category = Category.find.byId(id);
+				if(jsonNode.findValue("parent_id") == null || jsonNode.findValue("parent_id").asText().equals("null")) {
+					category.parent_id = null;
 				} else {
-					return forbidden();
+					category.parent_id = jsonNode.findValue("parent_id").asLong();
 				}
+				category.name = jsonNode.findValue("name").asText();
+				
+				category.update();
+				return ok(Json.toJson(category));
 			} catch(Exception e) {
 				return badRequest();
 			}
@@ -122,36 +112,31 @@ public class CategoryController extends Controller {
 	public CompletionStage<Result> delete(Long id) {
 		return calculateResponse().thenApplyAsync(answer -> {
 			try {
-				userChecker = LoginController.getUser();
-				if(userChecker.admin) {
-					category = Category.find.byId(id);
+				category = Category.find.byId(id);
+				
+				if(!(category.parent_id == null)) {
+					categories = Category.find.query().where()
+							.conjunction()
+							.eq("parent_id", id)
+							.endJunction()
+							.findList();
 					
-					if(!(category.parent_id == null)) {
-						categories = Category.find.query().where()
-								.conjunction()
-								.eq("parent_id", id)
-								.endJunction()
-								.findList();
-						
-						for(Category cat : categories) {
-							for(ProductCategory productCat : cat.productcategory) {
-								productCat.delete();
-							}
-							
-							cat.delete();
-							
+					for(Category cat : categories) {
+						for(ProductCategory productCat : cat.productcategory) {
+							productCat.delete();
 						}
-					}
-					
-					for(ProductCategory cat : category.productcategory) {
+						
 						cat.delete();
+						
 					}
-					
-					category.delete();
-					return ok(Json.toJson(""));
-				} else {
-					return forbidden();
 				}
+				
+				for(ProductCategory cat : category.productcategory) {
+					cat.delete();
+				}
+				
+				category.delete();
+				return ok(Json.toJson(""));
 			} catch(Exception e) {
 				return badRequest();
 			}

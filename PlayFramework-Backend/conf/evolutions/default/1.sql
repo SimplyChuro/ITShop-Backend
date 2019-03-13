@@ -33,18 +33,6 @@ create table product_category (
   constraint pk_product_category primary key (id)
 );
 
-create table users (
-  id                            bigserial not null,
-  auth_token                    varchar(255),
-  name                          varchar(256) not null,
-  surname                       varchar(256) not null,
-  email                         varchar(256) not null,
-  password                      varchar(255),
-  admin                         boolean,
-  constraint uq_users_email unique (email),
-  constraint pk_users primary key (id)
-);
-
 create index ix_pictures_product_id on pictures (product_id);
 alter table pictures add constraint fk_pictures_product_id foreign key (product_id) references products (id) on delete restrict on update restrict;
 
@@ -73,6 +61,4 @@ drop table if exists pictures cascade;
 drop table if exists products cascade;
 
 drop table if exists product_category cascade;
-
-drop table if exists users cascade;
 
