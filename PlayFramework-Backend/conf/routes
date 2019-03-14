@@ -5,6 +5,7 @@ POST	/api/v1/products				controllers.ProductController.create(request: Request)
 PUT		/api/v1/products/:id			controllers.ProductController.update(request: Request, id : Long)
 DELETE	/api/v1/products/:id			controllers.ProductController.delete(id : Long)
 GET 	/api/v1/validate/product/image	controllers.ProductController.validate(name: String, type: String, size: Integer)
+POST 	/api/v1/order					controllers.ProductController.order(request: Request)
 
 
 # Category API routes

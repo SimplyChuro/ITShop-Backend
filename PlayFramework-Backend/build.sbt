@@ -6,6 +6,7 @@ scalaVersion := "2.12.8"
 
 lazy val root = (project in file(".")).enablePlugins(PlayJava, PlayEbean)
 
+
 // Default
 libraryDependencies += guice
 libraryDependencies += jdbc
@@ -21,3 +22,8 @@ libraryDependencies += "org.mindrot" % "jbcrypt" % "0.3m"
 // Amazon Web Services
 libraryDependencies += "com.amazonaws" % "aws-java-sdk" % "1.11.475"
 libraryDependencies += "net.java.dev.jets3t" % "jets3t" % "0.9.4"
+
+
+// Mail
+libraryDependencies += "com.typesafe.play" %% "play-mailer" % "6.0.1"
+libraryDependencies += "com.typesafe.play" %% "play-mailer-guice" % "6.0.1"

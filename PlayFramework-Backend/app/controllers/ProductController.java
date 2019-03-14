@@ -8,6 +8,8 @@ import java.util.concurrent.CompletionStage;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import play.libs.mailer.Email;
+import play.libs.mailer.MailerClient;
 import additions.PictureFilter;
 import additions.S3Signature;
 import additions.Secured;
@@ -30,6 +32,8 @@ public class ProductController extends Controller {
 	private Product product;
 	private JsonNode jsonNode;
 	private PictureFilter filter = new PictureFilter();
+	
+	@Inject MailerClient mailerClient;
 	
 	@Inject
     public ProductController(HttpExecutionContext ec) {
@@ -214,5 +218,40 @@ public class ProductController extends Controller {
 			}
 		}, httpExecutionContext.current());
 	}
+	
+	//Order product
+	public CompletionStage<Result> order(Http.Request request) {
+		return calculateResponse().thenApplyAsync(answer -> {
+			try {
+				jsonNode = request.body().asJson();	
+				product = Product.find.byId(jsonNode.findValue("product_id").asLong());
+				
+				Email orderMail = new Email()
+					      .setSubject("Your order for "+product.name+" has been made!")
+					      .setFrom("ITShop Travnik <itshoptravnik@gmail.com>")
+					      .addTo("Mister/Miss <"+jsonNode.findValue("email").asText()+">")
+					      .setBodyText("Order Info")
+					      .setBodyHtml(
+					    		  "<html>"
+					      		+ "<body>"
+					      		+ "<p>"
+					      		+ "Dear, "+jsonNode.findValue("name").asText()+" "+jsonNode.findValue("surname").asText()+". "
+					      		+ "You have successfully ordered "+product.name+", with the given amount of "+jsonNode.findValue("quantity").asText()+". "
+			      				+ "The estimated arrival of the item is from a week upwards to a month. "
+			      				+ "It will be delivered to "+jsonNode.findValue("address").asText()+", "+jsonNode.findValue("address").asText()+", "+jsonNode.findValue("zipCode").asText()+". "
+					      		+ "You will be contacted on"+jsonNode.findValue("phone").asText()+". " 
+					      		+ "</p>"
+					      		+ "</body>"
+					      		+ "</html>");
+			    mailerClient.send(orderMail);
+		       
+				return ok();
+			} catch(Exception e) {
+				e.printStackTrace();
+				return badRequest();
+			}
+		}, httpExecutionContext.current());
+	}
+	
 	
 }
